@@ -131,11 +131,28 @@ tag_color_map() {
 
 setup_node_exporter() {
   msg_info "Configuring Prometheus Node Exporter on port 9100"
-  apt-get update &>/dev/null
-  apt-get -y install prometheus-node-exporter &>/dev/null
-  systemctl enable --now prometheus-node-exporter &>/dev/null || true
+  export DEBIAN_FRONTEND=noninteractive
+  set +e
+
+  apt-get update -o Acquire::Retries=3
+  if [ $? -ne 0 ]; then
+    msg_error "apt-get update failed (continuing without metrics)"
+    set -e
+    return 0
+  fi
+
+  apt-get install -y --no-install-recommends prometheus-node-exporter
+  if [ $? -ne 0 ]; then
+    msg_error "Failed to install prometheus-node-exporter (continuing without metrics)"
+    set -e
+    return 0
+  fi
+
+  systemctl enable --now prometheus-node-exporter >/dev/null 2>&1 || true
+  set -e
   msg_ok "Prometheus Node Exporter ready"
 }
+
 
 update_pve() {
   msg_info "Updating Proxmox VE (this can take a while)"
